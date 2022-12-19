@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using CSCore.CoreAudioAPI;
 
 namespace SoundManager
@@ -14,7 +16,15 @@ namespace SoundManager
         
         public static void Main(string[] args)
         {
-            _applications = args.ToList();
+            string readContents;
+            using (var streamReader = new StreamReader(args[0], Encoding.UTF8))
+            {
+                readContents = streamReader.ReadToEnd();
+            }
+            _applications = readContents.Split(
+                new[] { "\r\n", "\r", "\n" },
+                StringSplitOptions.RemoveEmptyEntries
+            ).ToList();
             _sessionManagers = GetDefaultAudioSessionManager2(DataFlow.Render).ToList();
             foreach (var sessionManager in _sessionManagers)
             {
