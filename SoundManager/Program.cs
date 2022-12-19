@@ -1,20 +1,32 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using CSCore.CoreAudioAPI;
 
 namespace SoundManager
 {
     internal static class Program
     {
+        private static readonly AutomationHandler Handler = new AutomationHandler();
+
+        private static List<string> _applications;
+        private static List<AudioSessionManager2> _sessionManagers;
+        
         public static void Main(string[] args)
         {
-            var list = GetProcesses(args);
-
-            if (list.Count > 0)
+            _applications = args.ToList();
+            _sessionManagers = GetDefaultAudioSessionManager2(DataFlow.Render).ToList();
+            foreach (var sessionManager in _sessionManagers)
             {
-                var handler = new AutomationHandler(list);
-                handler.Init();
+                sessionManager.SessionCreated += SystemEvents_SessionCreated;
             }
+            
+            foreach (var processHandler in GetProcesses(_applications, _sessionManagers))
+            {
+                Handler.AddProcessHandler(processHandler);
+            }
+            Handler.Init();
+            
 
             Console.ReadKey();
         }
@@ -30,35 +42,37 @@ namespace SoundManager
             }
         }
 
-        private static List<ProcessHandler> GetProcesses(ICollection<string> names)
+        private static List<ProcessHandler> GetProcesses(ICollection<string> names, List<AudioSessionManager2> sessionManagers)
         {
             var list = new List<ProcessHandler>();
-            foreach (var sessionManager in GetDefaultAudioSessionManager2(DataFlow.Render))
+            foreach (var sessionManager in sessionManagers)
             {
-                using (sessionManager)
+                using (var sessionEnumerator = sessionManager.GetSessionEnumerator())
                 {
-                    using (var sessionEnumerator = sessionManager.GetSessionEnumerator())
+                    foreach (var session in sessionEnumerator)
                     {
-                        foreach (var session in sessionEnumerator)
+                        var processHandler = new ProcessHandler(session);
+                        if (names.Contains(processHandler.Process.ProcessName))
                         {
-                            var processHandler = new ProcessHandler(session);
-                            // Console.WriteLine("Name: {0}, Identifier: {1}", processHandler.SessionControl.Process.ProcessName, processHandler.SessionControl.SessionIdentifier);
-
-                            if (names.Contains(processHandler.Process.ProcessName))
-                            {
-                                list.Add(processHandler);
-                            }
-                            else
-                            {
-                                processHandler.Dispose();
-                            }
+                            list.Add(processHandler);
+                        }
+                        else
+                        {
+                            processHandler.Dispose();
                         }
                     }
-
                 }
             }
 
             return list;
+        }
+        
+        private static void SystemEvents_SessionCreated(object sender, SessionCreatedEventArgs e)
+        {
+            foreach (var processHandler in GetProcesses(_applications, _sessionManagers))
+            {
+                Handler.AddProcessHandler(processHandler);
+            }
         }
     }
 }
