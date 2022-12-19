@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using CSCore.CoreAudioAPI;
 
@@ -16,6 +17,7 @@ namespace SoundManager
         
         public static void Main(string[] args)
         {
+            HideWindow();
             string readContents;
             using (var streamReader = new StreamReader(args[0], Encoding.UTF8))
             {
@@ -83,6 +85,18 @@ namespace SoundManager
             {
                 Handler.AddProcessHandler(processHandler);
             }
+        }
+        
+        [DllImport("user32.dll")]
+        private static extern int ShowWindow(int Handle, int showState);
+
+        [DllImport("kernel32.dll")]
+        public static extern int GetConsoleWindow();
+
+        public static void HideWindow()
+        {
+            int win = GetConsoleWindow();
+            ShowWindow(win, 0);
         }
     }
 }
