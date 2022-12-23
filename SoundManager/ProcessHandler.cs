@@ -39,9 +39,30 @@ namespace SoundManager
 
         public void Dispose()
         {
-            _process.Dispose();
-            _simpleVolume.Dispose();
-            _sessionControl.Dispose();
+            try
+            {
+                _process.Dispose();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
+            try
+            {
+                _simpleVolume.Dispose();
+            }
+            catch (CoreAudioAPIException e)
+            {
+                Console.WriteLine(e);
+            }
+            try
+            {
+                _sessionControl.Dispose();
+            }
+            catch (CoreAudioAPIException e)
+            {
+                Console.WriteLine(e);
+            }
         }
     }
 }

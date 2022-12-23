@@ -19,7 +19,12 @@ namespace SoundManager
 
         public void AddProcessHandler(ProcessHandler processHandler)
         {
-            if (_processes.Any(otherProcessHandler => processHandler.Process.Id.Equals(otherProcessHandler.Process.Id)))
+            if (
+                _processes.Any(otherProcessHandler => 
+                        processHandler.Process.Id.Equals(otherProcessHandler.Process.Id) &&
+                        processHandler.SessionControl.SessionIdentifier.Equals(otherProcessHandler.SessionControl.SessionIdentifier)
+                    )
+                )
             {
                 processHandler.Dispose();
             }
@@ -88,6 +93,11 @@ namespace SoundManager
 
         public void Dispose()
         {
+            foreach (var processHandler in _processes)
+            {
+                processHandler.Dispose();
+            }
+            _processes.RemoveAll(handler => true);
             SystemEvents.SessionSwitch -= SystemEvents_SessionSwitch;
             Automation.RemoveAutomationFocusChangedEventHandler(OnFocusChangedHandler);
         }

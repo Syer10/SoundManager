@@ -4,7 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using CSCore.CoreAudioAPI;
+using Microsoft.Win32;
 
 namespace SoundManager
 {
@@ -27,21 +29,56 @@ namespace SoundManager
                 new[] { "\r\n", "\r", "\n" },
                 StringSplitOptions.RemoveEmptyEntries
             ).ToList();
+
+            SystemEvents.PowerModeChanged += SystemEvents_OnPowerChange;
+
+            Init();
+
+            Console.ReadKey();
+        }
+
+        private static void Init()
+        {
             _sessionManagers = GetDefaultAudioSessionManager2(DataFlow.Render).ToList();
             foreach (var sessionManager in _sessionManagers)
             {
-                sessionManager.SessionCreated += SystemEvents_SessionCreated;
+                sessionManager.SessionCreated += AudioSession_SessionCreated;
             }
-            
+
             foreach (var processHandler in GetProcesses(_applications, _sessionManagers))
             {
                 Handler.AddProcessHandler(processHandler);
             }
             Handler.Init();
-            
-
-            Console.ReadKey();
         }
+
+        private static void Dispose()
+        {
+            foreach (var sessionManager in _sessionManagers)
+            {
+                try
+                {
+                    sessionManager.SessionCreated -= AudioSession_SessionCreated;
+                }
+                catch (CoreAudioAPIException e)
+                {
+                    Console.WriteLine("Remove");
+                    Console.WriteLine(e);
+                }
+                try
+                {
+                    sessionManager.Dispose();
+                }
+                catch (CoreAudioAPIException e)
+                {
+                    Console.WriteLine("Dispose");
+                    Console.WriteLine(e);
+                }
+            }
+            _sessionManagers = null;
+            Handler.Dispose();
+        }
+        
         private static IEnumerable<AudioSessionManager2> GetDefaultAudioSessionManager2(DataFlow dataFlow)
         {
             var enumerator = new MMDeviceEnumerator();
@@ -79,7 +116,54 @@ namespace SoundManager
             return list;
         }
         
-        private static void SystemEvents_SessionCreated(object sender, SessionCreatedEventArgs e)
+        private static void SystemEvents_OnPowerChange(object s, PowerModeChangedEventArgs e)
+        {
+            if (e.Mode == PowerModes.Resume)
+            {
+                Console.WriteLine("Resume");
+                try
+                {
+                    Dispose();
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine(exception);
+                    throw;
+                }
+
+                try
+                {
+                    Thread.Sleep(TimeSpan.FromSeconds(10));
+                    Init();
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine(exception);
+                    throw;
+                }
+
+            }
+            else if (e.Mode == PowerModes.Suspend)
+            {
+                try
+                {
+                    Console.WriteLine("Suspend");
+                    Dispose();
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine(exception);
+                    throw;
+                }
+
+            }
+            else if (e.Mode == PowerModes.StatusChange)
+            {
+                Console.WriteLine("StatusChange");
+            }
+        }
+
+        private static void AudioSession_SessionCreated(object sender, SessionCreatedEventArgs e)
         {
             foreach (var processHandler in GetProcesses(_applications, _sessionManagers))
             {
